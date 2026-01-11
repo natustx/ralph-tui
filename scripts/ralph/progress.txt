@@ -1035,3 +1035,24 @@ Started: Sun 11 Jan 10:55:32 GMT 2026
   - BeadsTrackerPlugin stores epicId in private field, beads-bv inherits via public getter
   - Using createCliRenderer with multiple root.render() calls requires cleanup between UIs
 ---
+
+## 2026-01-11 - ralph-tui-45r.39
+- What was implemented:
+  - FEAT: Show epic hierarchy in task list with indented children
+  - Added parentId field to TaskItem interface for hierarchical display
+  - Updated trackerTaskToTaskItem() to map TrackerTask.parentId → TaskItem.parentId
+  - Added buildIndentMap() helper function to compute indentation levels
+  - Modified TaskRow component to accept indentLevel prop (0 = epic/root, 1 = child)
+  - Children tasks indented 2 spaces per level for visual hierarchy
+  - Only indents tasks whose parent exists in the current filtered view
+  - Title truncation adjusted to account for indentation width
+- Files changed:
+  - src/tui/types.ts (updated) - Added parentId field to TaskItem interface
+  - src/tui/components/RunApp.tsx (updated) - Added parentId mapping in trackerTaskToTaskItem()
+  - src/tui/components/LeftPanel.tsx (updated) - Added buildIndentMap(), indentLevel prop, hierarchy rendering
+- **Learnings:**
+  - Indent map pattern separates hierarchy computation from rendering logic
+  - Parent presence check ensures correct behavior when parent task is filtered out
+  - 2-space indentation provides clear hierarchy without consuming too much horizontal space
+  - Dim color for indent spaces keeps focus on status indicator and task content
+---
