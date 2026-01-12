@@ -298,15 +298,13 @@ export class ClaudeAgentPlugin extends BaseAgentPlugin {
     // Add print mode flag for non-interactive output
     args.push('--print');
 
-    // Add output format based on subagentTracing option or printMode setting
-    // When subagentTracing is enabled, force JSON output for structured event parsing
-    if (options?.subagentTracing) {
-      args.push('--output-format', 'json');
-    } else if (this.printMode === 'json') {
-      args.push('--output-format', 'json');
-    } else if (this.printMode === 'stream') {
+    // Add output format for structured JSONL streaming
+    // Always use stream-json when we want structured output (subagentTracing or json/stream modes)
+    // Note: 'json' format waits until the end - we always prefer 'stream-json' for live output
+    if (options?.subagentTracing || this.printMode === 'json' || this.printMode === 'stream') {
       args.push('--output-format', 'stream-json');
     }
+    // Default (printMode === 'text'): no --output-format flag, uses plain text streaming
 
     // Add model if specified (from config or passed in options)
     const modelToUse = this.model;
