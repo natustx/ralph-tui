@@ -1,8 +1,8 @@
 # bv (beads viewer) local config and caches
 .bv/
 
-# Ralph runtime files
-scripts/ralph/progress.txt
+# Ralph runtime/generated files
+tasks/
 
 # Node.js
 node_modules/
