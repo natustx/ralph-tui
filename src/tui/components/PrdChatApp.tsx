@@ -11,6 +11,7 @@ import { writeFile, mkdir, access } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { ChatView } from './ChatView.js';
+import { ConfirmationDialog } from './ConfirmationDialog.js';
 import { ChatEngine, createPrdChatEngine, slugify } from '../../chat/engine.js';
 import type { ChatMessage, ChatEvent } from '../../chat/types.js';
 import type { AgentPlugin } from '../../plugins/agents/types.js';
@@ -160,6 +161,9 @@ export function PrdChatApp({
   const [loadingStatus, setLoadingStatus] = useState('');
   const [streamingChunk, setStreamingChunk] = useState('');
   const [error, setError] = useState<string | undefined>();
+
+  // Quit confirmation dialog state
+  const [showQuitConfirm, setShowQuitConfirm] = useState(false);
 
   // Refs
   const engineRef = useRef<ChatEngine | null>(null);
@@ -391,6 +395,17 @@ Read the PRD and create the appropriate tasks.`;
    */
   const handleKeyboard = useCallback(
     (key: { name: string; sequence?: string }) => {
+      // Handle quit confirmation dialog
+      if (showQuitConfirm) {
+        if (key.name === 'y' || key.sequence === 'y' || key.sequence === 'Y') {
+          setShowQuitConfirm(false);
+          onCancel();
+        } else if (key.name === 'n' || key.name === 'escape' || key.sequence === 'n' || key.sequence === 'N') {
+          setShowQuitConfirm(false);
+        }
+        return;
+      }
+
       // Don't process keys while loading
       if (isLoading) {
         return;
@@ -421,7 +436,8 @@ Read the PRD and create the appropriate tasks.`;
             // In review phase, escape completes (PRD already saved)
             onComplete(prdPath, featureName);
           } else {
-            onCancel();
+            // In chat phase, show confirmation dialog
+            setShowQuitConfirm(true);
           }
           break;
 
@@ -449,7 +465,7 @@ Read the PRD and create the appropriate tasks.`;
           break;
       }
     },
-    [isLoading, phase, trackerOptions, handleTrackerSelect, prdPath, featureName, onComplete, onCancel, sendMessage]
+    [showQuitConfirm, isLoading, phase, trackerOptions, handleTrackerSelect, prdPath, featureName, onComplete, onCancel, sendMessage]
   );
 
   useKeyboard(handleKeyboard);
@@ -495,20 +511,28 @@ Read the PRD and create the appropriate tasks.`;
     );
   }
 
-  // Chat phase: single pane
+  // Chat phase: single pane with quit confirmation dialog
   return (
-    <ChatView
-      title="PRD Creator"
-      subtitle={`Using ${agent.meta.name}`}
-      messages={messages}
-      inputValue={inputValue}
-      isLoading={isLoading}
-      loadingStatus={loadingStatus}
-      streamingChunk={streamingChunk}
-      inputPlaceholder="Describe your feature..."
-      error={error}
-      inputEnabled={!isLoading}
-      hint={hint}
-    />
+    <box style={{ width: '100%', height: '100%', position: 'relative' }}>
+      <ChatView
+        title="PRD Creator"
+        subtitle={`Using ${agent.meta.name}`}
+        messages={messages}
+        inputValue={inputValue}
+        isLoading={isLoading}
+        loadingStatus={loadingStatus}
+        streamingChunk={streamingChunk}
+        inputPlaceholder="Describe your feature..."
+        error={error}
+        inputEnabled={!isLoading && !showQuitConfirm}
+        hint={hint}
+      />
+      <ConfirmationDialog
+        visible={showQuitConfirm}
+        title="Cancel PRD Creation?"
+        message="Your progress will be lost."
+        hint="[y] Yes, cancel  [n/Esc] No, continue"
+      />
+    </box>
   );
 }
