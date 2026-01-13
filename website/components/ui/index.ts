@@ -19,3 +19,7 @@ export type {
 // Badge component and types
 export { Badge } from './Badge';
 export type { BadgeProps, BadgeVariant, BadgeSize } from './Badge';
+
+// CodeBlock component and types
+export { CodeBlock } from './CodeBlock';
+export type { CodeBlockProps } from './CodeBlock';
