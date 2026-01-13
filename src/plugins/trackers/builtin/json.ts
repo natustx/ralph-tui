@@ -145,7 +145,7 @@ or manually restructure the file to match the schema above.`
   }
 
   // Check for name field (accept 'project' as alias)
-  const name = (obj.name as string) || (obj.project as string);
+  const name = 'name' in obj ? obj.name : obj.project;
   if (!name || typeof name !== 'string') {
     errors.push('Missing required field: "name" (string) - the project/feature name');
   }
@@ -193,7 +193,7 @@ or manually restructure the file to match the schema above.`
       if (foundUnsupported.length > 0) {
         errors.push(
           `userStories[${i}]: contains unsupported fields: ${foundUnsupported.join(', ')}. ` +
-            'These will be ignored. The prd.json schema does not support subtasks or time estimates.'
+            'Remove these fields. The prd.json schema does not support subtasks or time estimates.'
         );
       }
     }
@@ -210,7 +210,7 @@ or manually restructure the file to match the schema above.`
 
   // Normalize: accept 'project' as alias for 'name'
   return {
-    name: name,
+    name: name as string,
     description: typeof obj.description === 'string' ? obj.description : undefined,
     branchName: typeof obj.branchName === 'string' ? obj.branchName : undefined,
     userStories: (obj.userStories as PrdUserStory[]).map((s) => ({
