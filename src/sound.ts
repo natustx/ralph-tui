@@ -93,12 +93,14 @@ async function playFile(filePath: string): Promise<void> {
 
       case 'win32':
         // Windows: use PowerShell to play sound
+        // Pass filePath as argument to avoid command injection
         proc = spawn(
           'powershell',
           [
             '-NoProfile',
             '-Command',
-            `(New-Object Media.SoundPlayer '${filePath}').PlaySync()`,
+            '& { (New-Object Media.SoundPlayer $args[0]).PlaySync() }',
+            filePath,
           ],
           {
             stdio: 'ignore',
@@ -236,10 +238,11 @@ export async function playNotificationSound(mode: NotificationSoundMode): Promis
     case 'ralph':
       return playRalphSound();
 
-    default:
-      // Exhaustive check
+    default: {
+      // Exhaustive check - block scoped to prevent identifier leakage
       const _exhaustive: never = mode;
       return _exhaustive;
+    }
   }
 }
 
