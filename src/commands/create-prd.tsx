@@ -6,6 +6,9 @@
 
 import { createCliRenderer } from '@opentui/core';
 import { createRoot } from '@opentui/react';
+import { access, stat } from 'node:fs/promises';
+import { constants } from 'node:fs';
+import { join, resolve } from 'node:path';
 import { PrdChatApp } from '../tui/components/PrdChatApp.js';
 import type { PrdCreationResult } from '../tui/components/PrdChatApp.js';
 import { loadStoredConfig, requireSetup } from '../config/index.js';
@@ -115,6 +118,35 @@ Examples:
 `);
 }
 
+async function validatePrdSkill(
+  prdSkill: string,
+  skillsDir: string,
+  cwd: string
+): Promise<void> {
+  const resolvedSkillsDir = resolve(cwd, skillsDir);
+  const skillPath = join(resolvedSkillsDir, prdSkill);
+
+  try {
+    const stats = await stat(skillPath);
+    if (!stats.isDirectory()) {
+      console.error(`Error: PRD skill '${prdSkill}' is not a directory in ${resolvedSkillsDir}.`);
+      process.exit(1);
+    }
+  } catch {
+    console.error(`Error: PRD skill '${prdSkill}' was not found in ${resolvedSkillsDir}.`);
+    process.exit(1);
+  }
+
+  const skillFile = join(skillPath, 'SKILL.md');
+
+  try {
+    await access(skillFile, constants.R_OK);
+  } catch {
+    console.error(`Error: PRD skill '${prdSkill}' is missing SKILL.md in ${skillPath}.`);
+    process.exit(1);
+  }
+}
+
 /**
  * Get the configured agent plugin.
  */
@@ -214,6 +246,7 @@ async function runChatMode(parsedArgs: CreatePrdArgs): Promise<PrdCreationResult
         cwd={cwd}
         outputDir={outputDir}
         timeout={timeout}
+        prdSkill={parsedArgs.prdSkill}
         onComplete={handleComplete}
         onCancel={handleCancel}
         onError={handleError}
@@ -240,6 +273,10 @@ export async function executeCreatePrdCommand(args: string[]): Promise<void> {
     console.error('Error: --prd-skill requires skills_dir to be set in config.');
     console.error('Set skills_dir in ~/.config/ralph-tui/config.toml or .ralph-tui/config.toml.');
     process.exit(1);
+  }
+
+  if (parsedArgs.prdSkill && storedConfig.skills_dir) {
+    await validatePrdSkill(parsedArgs.prdSkill, storedConfig.skills_dir, cwd);
   }
 
   const result = await runChatMode(parsedArgs);

@@ -46,6 +46,8 @@ export interface PrdChatAppProps {
   /** Timeout for agent calls in milliseconds */
   timeout?: number;
 
+  prdSkill?: string;
+
   /** Callback when PRD is successfully generated */
   onComplete: (result: PrdCreationResult) => void;
 
@@ -182,6 +184,7 @@ export function PrdChatApp({
   cwd = process.cwd(),
   outputDir = 'tasks',
   timeout = 180000,
+  prdSkill,
   onComplete,
   onCancel,
   onError,
@@ -218,7 +221,7 @@ export function PrdChatApp({
   // Initialize chat engine
   useEffect(() => {
     isMountedRef.current = true;
-    const engine = createPrdChatEngine(agent, { cwd, timeout });
+    const engine = createPrdChatEngine(agent, { cwd, timeout, prdSkill });
 
     // Subscribe to events
     const unsubscribe = engine.on((event: ChatEvent) => {
@@ -246,7 +249,7 @@ export function PrdChatApp({
       isMountedRef.current = false;
       unsubscribe();
     };
-  }, [agent, cwd, timeout, onError]);
+  }, [agent, cwd, timeout, prdSkill, onError]);
 
   /**
    * Handle PRD detection - save file and switch to review phase
