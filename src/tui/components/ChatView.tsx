@@ -150,10 +150,10 @@ export function ChatView({
   // Textarea ref for submit handling and value access
   const textareaRef = useRef<TextareaRenderable>(null);
 
-  // Sync initialValue when it changes from outside (e.g., after clearing)
+  // Sync textarea content when inputValue changes from outside (e.g., after clearing)
   useEffect(() => {
     if (textareaRef.current && inputValue !== textareaRef.current.plainText) {
-      textareaRef.current.initialValue = inputValue;
+      textareaRef.current.editBuffer.setText(inputValue);
     }
   }, [inputValue]);
 
