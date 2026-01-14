@@ -91,6 +91,8 @@ export interface RunAppProps {
   initialSubagentPanelVisible?: boolean;
   /** Callback when subagent panel visibility changes (to persist state) */
   onSubagentPanelVisibilityChange?: (visible: boolean) => void;
+  /** Current model being used (provider/model format, e.g., "anthropic/claude-3-5-sonnet") */
+  currentModel?: string;
 }
 
 /**
@@ -293,6 +295,7 @@ export function RunApp({
   currentEpicId,
   initialSubagentPanelVisible = false,
   onSubagentPanelVisibilityChange,
+  currentModel,
 }: RunAppProps): ReactNode {
   const { width, height } = useTerminalDimensions();
   const [tasks, setTasks] = useState<TaskItem[]>(() => {
@@ -385,6 +388,9 @@ export function RunApp({
   const [activeAgentState, setActiveAgentState] = useState<ActiveAgentState | null>(null);
   // Rate limit state from engine - tracks primary agent rate limiting
   const [rateLimitState, setRateLimitState] = useState<RateLimitState | null>(null);
+
+  // Compute display agent name - prefer active agent from engine state, fallback to config
+  const displayAgentName = activeAgentState?.plugin ?? agentName;
 
   // Filter and sort tasks for display
   // Sort order: active → actionable → blocked → done → closed
@@ -1142,13 +1148,15 @@ export function RunApp({
         rateLimitState={rateLimitState}
         currentIteration={currentIteration}
         maxIterations={maxIterations}
+        currentModel={currentModel}
       />
 
       {/* Progress Dashboard - toggleable with 'd' key */}
       {showDashboard && (
         <ProgressDashboard
           status={status}
-          agentName={agentName}
+          agentName={displayAgentName}
+          currentModel={currentModel}
           trackerName={trackerName || 'beads'}
           epicName={epicName}
           currentTaskId={currentTaskId}
@@ -1186,6 +1194,8 @@ export function RunApp({
               iterationOutput={selectedTaskIteration.output}
               viewMode={detailsViewMode}
               iterationTiming={selectedTaskIteration.timing}
+              agentName={displayAgentName}
+              currentModel={currentModel}
               subagentDetailLevel={subagentDetailLevel}
               subagentTree={subagentTree}
               collapsedSubagents={collapsedSubagents}
@@ -1217,6 +1227,8 @@ export function RunApp({
               iterationOutput={selectedTaskIteration.output}
               viewMode={detailsViewMode}
               iterationTiming={selectedTaskIteration.timing}
+              agentName={displayAgentName}
+              currentModel={currentModel}
               subagentDetailLevel={subagentDetailLevel}
               subagentTree={subagentTree}
               collapsedSubagents={collapsedSubagents}

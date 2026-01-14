@@ -17,9 +17,6 @@ import type {
   AgentExecutionHandle,
 } from '../types.js';
 
-/** Supported providers for the model flag */
-type OpenCodeProvider = 'anthropic' | 'openai' | 'google' | 'xai' | 'ollama';
-
 /** Output format options */
 type OpenCodeFormat = 'default' | 'json';
 
@@ -87,8 +84,8 @@ export class OpenCodeAgentPlugin extends BaseAgentPlugin {
     supportsSubagentTracing: false,
   };
 
-  /** AI provider (anthropic, openai, google, xai, ollama) */
-  private provider?: OpenCodeProvider;
+  /** AI provider (any string, validated by OpenCode CLI) */
+  private provider?: string;
 
   /** Model name (without provider prefix) */
   private model?: string;
@@ -105,11 +102,9 @@ export class OpenCodeAgentPlugin extends BaseAgentPlugin {
   override async initialize(config: Record<string, unknown>): Promise<void> {
     await super.initialize(config);
 
-    if (
-      typeof config.provider === 'string' &&
-      ['anthropic', 'openai', 'google', 'xai', 'ollama'].includes(config.provider)
-    ) {
-      this.provider = config.provider as OpenCodeProvider;
+    // Accept any provider string - OpenCode CLI validates provider validity
+    if (typeof config.provider === 'string' && config.provider.length > 0) {
+      this.provider = config.provider;
     }
 
     if (typeof config.model === 'string' && config.model.length > 0) {
@@ -373,15 +368,16 @@ export class OpenCodeAgentPlugin extends BaseAgentPlugin {
   override async validateSetup(
     answers: Record<string, unknown>
   ): Promise<string | null> {
-    // Validate provider
+    // Validate provider - accept any non-empty string since OpenCode supports 75+ providers
     const provider = answers.provider;
     if (
       provider !== undefined &&
       provider !== '' &&
-      !['anthropic', 'openai', 'google', 'xai', 'ollama'].includes(String(provider))
+      typeof provider !== 'string'
     ) {
-      return 'Invalid provider. Must be one of: anthropic, openai, google, xai, ollama';
+      return 'Provider must be a string';
     }
+    // Provider validation is delegated to OpenCode CLI - it will error if invalid
 
     // Validate agent type
     const agent = answers.agent;
@@ -407,29 +403,26 @@ export class OpenCodeAgentPlugin extends BaseAgentPlugin {
   }
 
   /**
-   * Valid providers for the OpenCode agent.
-   */
-  static readonly VALID_PROVIDERS = ['anthropic', 'openai', 'google', 'xai', 'ollama'] as const;
-
-  /**
-   * Validate a model name for the OpenCode agent.
-   * Accepts either "provider/model" format or just "model".
-   * Validates the provider if specified, but model names are passed through
-   * since they vary by provider and change frequently.
-   * @param model The model name to validate
-   * @returns null if valid, error message if invalid
-   */
+    * Validate a model name for the OpenCode agent.
+    * Accepts either "provider/model" format or just "model" name.
+    * Provider validation is delegated to the OpenCode CLI which supports 75+ providers.
+    * @param model The model name to validate
+    * @returns null if valid, error message if invalid
+    */
   override validateModel(model: string): string | null {
     if (model === '' || model === undefined) {
       return null; // Empty is valid (uses default)
     }
 
     // Check if model is in provider/model format
+    // We accept any provider name since OpenCode CLI validates providers
+    // and supports 75+ LLM providers through its AI SDK integration
     if (model.includes('/')) {
-      const [provider] = model.split('/');
-      if (!OpenCodeAgentPlugin.VALID_PROVIDERS.includes(provider as typeof OpenCodeAgentPlugin.VALID_PROVIDERS[number])) {
-        return `Invalid provider "${provider}" in model "${model}". Valid providers: ${OpenCodeAgentPlugin.VALID_PROVIDERS.join(', ')}`;
+      const [provider, modelName] = model.split('/');
+      if (!provider || !modelName) {
+        return `Invalid model format "${model}". Expected format: provider/model (e.g., anthropic/claude-3-5-sonnet)`;
       }
+      // Provider and model name are passed through - OpenCode CLI validates them
     }
 
     // Model name itself is not validated - let opencode CLI handle it

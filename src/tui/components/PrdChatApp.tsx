@@ -13,9 +13,10 @@ import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { ChatView } from './ChatView.js';
 import { ConfirmationDialog } from './ConfirmationDialog.js';
-import { ChatEngine, createPrdChatEngine, slugify } from '../../chat/engine.js';
+import { ChatEngine, createPrdChatEngine, createTaskChatEngine, slugify } from '../../chat/engine.js';
 import type { ChatMessage, ChatEvent } from '../../chat/types.js';
 import type { AgentPlugin } from '../../plugins/agents/types.js';
+import { parsePrdMarkdown } from '../../prd/index.js';
 import { colors } from '../theme.js';
 
 /**
@@ -45,6 +46,10 @@ export interface PrdChatAppProps {
 
   /** Timeout for agent calls in milliseconds */
   timeout?: number;
+
+  prdSkill?: string;
+
+  prdSkillSource?: string;
 
   /** Callback when PRD is successfully generated */
   onComplete: (result: PrdCreationResult) => void;
@@ -182,6 +187,8 @@ export function PrdChatApp({
   cwd = process.cwd(),
   outputDir = 'tasks',
   timeout = 180000,
+  prdSkill,
+  prdSkillSource,
   onComplete,
   onCancel,
   onError,
@@ -210,6 +217,7 @@ export function PrdChatApp({
 
   // Refs
   const engineRef = useRef<ChatEngine | null>(null);
+  const taskEngineRef = useRef<ChatEngine | null>(null);
   const isMountedRef = useRef(true);
 
   // Get tracker options
@@ -218,7 +226,13 @@ export function PrdChatApp({
   // Initialize chat engine
   useEffect(() => {
     isMountedRef.current = true;
-    const engine = createPrdChatEngine(agent, { cwd, timeout });
+    const engine = createPrdChatEngine(agent, {
+      cwd,
+      timeout,
+      prdSkill,
+      prdSkillSource,
+    });
+    const taskEngine = createTaskChatEngine(agent, { cwd, timeout });
 
     // Subscribe to events
     const unsubscribe = engine.on((event: ChatEvent) => {
@@ -241,12 +255,13 @@ export function PrdChatApp({
     });
 
     engineRef.current = engine;
+    taskEngineRef.current = taskEngine;
 
     return () => {
       isMountedRef.current = false;
       unsubscribe();
     };
-  }, [agent, cwd, timeout, onError]);
+  }, [agent, cwd, timeout, prdSkill, prdSkillSource, onError]);
 
   /**
    * Handle PRD detection - save file and switch to review phase
@@ -311,7 +326,16 @@ Press a number key to select, or continue chatting.`,
    */
   const handleTrackerSelect = useCallback(
     async (option: TrackerOption) => {
-      if (!engineRef.current || !prdPath || isLoading) return;
+      if (!taskEngineRef.current || !prdPath || !prdContent || isLoading) return;
+
+      const parsedPrd = parsePrdMarkdown(prdContent);
+      if (parsedPrd.userStories.length === 0) {
+        const errorMessage =
+          'PRD has no user stories. Add sections like "### US-001: Title" with acceptance criteria checklists.';
+        setError(errorMessage);
+        onError?.(errorMessage);
+        return;
+      }
 
       // Record which tracker format was selected
       const format = option.key === '1' ? 'json' : 'beads';
@@ -336,7 +360,7 @@ The PRD file is at: ${prdPath}
 Read the PRD and create the appropriate tasks.`;
 
       try {
-        const result = await engineRef.current.sendMessage(prompt, {
+        const result = await taskEngineRef.current.sendMessage(prompt, {
           onChunk: (chunk) => {
             if (isMountedRef.current) {
               setStreamingChunk((prev) => prev + chunk);
@@ -377,7 +401,7 @@ Read the PRD and create the appropriate tasks.`;
         }
       }
     },
-    [prdPath, isLoading]
+    [prdPath, prdContent, isLoading, onError]
   );
 
   /**
@@ -501,7 +525,7 @@ Read the PRD and create the appropriate tasks.`;
   const hint =
     phase === 'review'
       ? '[1] JSON  [2] Beads  [3] Done  [Enter] Chat  [Esc] Finish'
-      : '[Ctrl+Enter] Send  [Esc] Cancel';
+      : '[Enter] Send  [Shift+Enter/Ctrl+J] Newline  [Esc] Cancel';
 
   // In review phase, show split pane
   if (phase === 'review' && prdContent && prdPath) {

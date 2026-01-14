@@ -6,7 +6,8 @@
 
 import type { ReactNode } from 'react';
 import { useState, useEffect, useRef, useCallback } from 'react';
-import type { TextareaRenderable } from '@opentui/core';
+import { useKeyboard } from '@opentui/react';
+import type { TextareaRenderable, KeyEvent } from '@opentui/core';
 import { colors } from '../theme.js';
 import type { ChatMessage } from '../../chat/types.js';
 
@@ -157,11 +158,150 @@ export function ChatView({
     }
   }, [inputValue]);
 
-  // Handle submit - get value from textarea ref and pass it directly
+  // Handle submit - get value from textarea ref and pass it directly, then clear
   const handleSubmit = useCallback(() => {
     const currentValue = textareaRef.current?.plainText ?? '';
+    // Clear the textarea immediately before calling onSubmit
+    // This ensures the input is cleared even if there's a delay
+    if (textareaRef.current) {
+      textareaRef.current.editBuffer.setText('');
+    }
     onSubmit?.(currentValue);
   }, [onSubmit]);
+
+  // Handle keyboard for text editing shortcuts (macOS-style)
+  const handleKeyboard = useCallback(
+    (key: KeyEvent) => {
+      // Only handle if textarea is focused and input is enabled
+      if (!textareaRef.current || !inputEnabled || isLoading) {
+        return;
+      }
+
+      const textarea = textareaRef.current;
+
+      // Enter = submit (without modifiers)
+      if (key.name === 'return' && !key.meta && !key.ctrl && !key.shift) {
+        key.preventDefault?.();
+        handleSubmit();
+        return;
+      }
+
+      // Check for Ctrl+J or Shift+Enter - allow default behavior (newline)
+      // These don't need special handling, just let them through
+
+      // === Option + Arrow Keys (word navigation) ===
+      if (key.option && !key.shift && !key.meta && !key.ctrl) {
+        if (key.name === 'left') {
+          key.preventDefault?.();
+          textarea.moveWordBackward();
+          return;
+        }
+        if (key.name === 'right') {
+          key.preventDefault?.();
+          textarea.moveWordForward();
+          return;
+        }
+        if (key.name === 'up') {
+          key.preventDefault?.();
+          textarea.gotoBufferHome();
+          return;
+        }
+        if (key.name === 'down') {
+          key.preventDefault?.();
+          textarea.gotoBufferEnd();
+          return;
+        }
+      }
+
+      // === Option + Delete (delete word) ===
+      if (key.option && key.name === 'backspace') {
+        key.preventDefault?.();
+        textarea.deleteWordBackward();
+        return;
+      }
+      // Option + Fn + Delete (Forward Delete on some keyboards)
+      if (key.option && key.name === 'delete') {
+        key.preventDefault?.();
+        textarea.deleteWordForward();
+        return;
+      }
+
+      // === Shift + Option + Arrow Keys (select by word/paragraph) ===
+      if (key.shift && key.option && !key.meta && !key.ctrl) {
+        if (key.name === 'left') {
+          key.preventDefault?.();
+          textarea.moveWordBackward({ select: true });
+          return;
+        }
+        if (key.name === 'right') {
+          key.preventDefault?.();
+          textarea.moveWordForward({ select: true });
+          return;
+        }
+        if (key.name === 'up') {
+          key.preventDefault?.();
+          textarea.gotoBufferHome({ select: true });
+          return;
+        }
+        if (key.name === 'down') {
+          key.preventDefault?.();
+          textarea.gotoBufferEnd({ select: true });
+          return;
+        }
+      }
+
+      // === Shift + Arrow Keys (select by character/line) ===
+      if (key.shift && !key.meta && !key.option && !key.ctrl) {
+        if (key.name === 'left') {
+          key.preventDefault?.();
+          textarea.moveCursorLeft({ select: true });
+          return;
+        }
+        if (key.name === 'right') {
+          key.preventDefault?.();
+          textarea.moveCursorRight({ select: true });
+          return;
+        }
+        if (key.name === 'up') {
+          key.preventDefault?.();
+          textarea.moveCursorUp({ select: true });
+          return;
+        }
+        if (key.name === 'down') {
+          key.preventDefault?.();
+          textarea.moveCursorDown({ select: true });
+          return;
+        }
+      }
+
+      // === Shift + Cmd + Arrow Keys (select to line start/end) ===
+      if (key.shift && key.meta && !key.option && !key.ctrl) {
+        if (key.name === 'left') {
+          key.preventDefault?.();
+          textarea.gotoLineHome({ select: true });
+          return;
+        }
+        if (key.name === 'right') {
+          key.preventDefault?.();
+          textarea.gotoLineEnd({ select: true });
+          return;
+        }
+        if (key.name === 'up') {
+          key.preventDefault?.();
+          textarea.gotoBufferHome({ select: true });
+          return;
+        }
+        if (key.name === 'down') {
+          key.preventDefault?.();
+          textarea.gotoBufferEnd({ select: true });
+          return;
+        }
+      }
+    },
+    [inputEnabled, isLoading, handleSubmit]
+  );
+
+  useKeyboard(handleKeyboard);
 
   return (
     <box

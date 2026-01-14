@@ -90,7 +90,8 @@ async function runWithTui(
   engine: ExecutionEngine,
   cwd: string,
   initialState: PersistedSessionState,
-  trackerType?: string
+  trackerType?: string,
+  currentModel?: string
 ): Promise<PersistedSessionState> {
   let currentState = initialState;
 
@@ -161,6 +162,7 @@ async function runWithTui(
       trackerType={trackerType}
       initialSubagentPanelVisible={initialState.subagentPanelVisible ?? false}
       onSubagentPanelVisibilityChange={handleSubagentPanelVisibilityChange}
+      currentModel={currentModel}
     />
   );
 
@@ -396,7 +398,7 @@ export async function executeResumeCommand(args: string[]): Promise<void> {
   let finalState: PersistedSessionState;
   try {
     if (!headless && config.showTui) {
-      finalState = await runWithTui(engine, cwd, resumedState, config.tracker.plugin);
+      finalState = await runWithTui(engine, cwd, resumedState, config.tracker.plugin, config.model);
     } else {
       finalState = await runHeadless(engine, cwd, resumedState);
     }

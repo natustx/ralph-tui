@@ -27,6 +27,7 @@ ralph-tui prime    # Same as create-prd
 |--------|-------------|
 | `--chat`, `--ai` | Use AI-powered chat mode (recommended) |
 | `--agent <name>` | Override agent for chat mode |
+| `--prd-skill <name>` | Use custom PRD skill from `skills_dir` |
 | `--output, -o <dir>` | Output directory for PRD files (default: `./tasks`) |
 | `--stories, -n <count>` | Number of user stories (template mode only) |
 | `--force, -f` | Overwrite existing files |
@@ -62,6 +63,48 @@ ralph-tui create-prd --chat --output ./docs/prds
 # Overwrite existing PRD
 ralph-tui create-prd --chat --force
 ```
+
+### Custom PRD Skill
+
+Use a custom PRD skill from your configured `skills_dir`:
+
+```bash
+# Requires skills_dir in your config file
+ralph-tui create-prd --chat --prd-skill my-custom-skill
+```
+
+See [Configuration](/docs/configuration/options) for how to set `skills_dir`.
+
+### PRD Format Requirements for Task Creation
+
+Custom skills must produce PRDs that are compatible with downstream task creation. The generated PRD must include:
+
+1. **User Stories** with IDs matching pattern `### US-XXX: Title`:
+   ```markdown
+   ### US-001: Add user authentication
+
+   **As a** registered user
+   **I want** to log in with email and password
+   **So that** I can access my account
+
+   #### Acceptance Criteria
+   - [ ] Login form displays on /login route
+   - [ ] Invalid credentials show error message
+   - [ ] Successful login redirects to dashboard
+   ```
+
+2. **Quality Gates section** (optional but recommended):
+   ```markdown
+   ## Quality Gates
+
+   These commands must pass for every user story:
+   - `bun run typecheck` - Type checking
+   - `bun run lint` - Linting
+   ```
+
+<Callout type="warning">
+If a custom skill generates a PRD without user stories (matching `### US-XXX:` pattern), task creation will fail with an error message.
+</Callout>
 
 ## Chat Mode Workflow
 
